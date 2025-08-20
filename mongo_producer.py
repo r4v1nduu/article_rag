@@ -13,8 +13,10 @@ class MongoChangeStreamProducer:
     def __init__(self, mongo_uri, redis_host, redis_port=6379, redis_db=0):
         # MongoDB connection
         self.mongo_client = MongoClient(mongo_uri)
-        self.db = self.mongo_client['documents']  # Your database name
-        self.collection = self.db['docs']  # Your collection name
+        
+        # TODO: UPDATE THESE WITH YOUR ACTUAL DATABASE AND COLLECTION NAMES
+        self.db = self.mongo_client['emaildb']  # ⚠️ CHANGE THIS
+        self.collection = self.db['emails']  # ⚠️ CHANGE THIS
         
         # Redis connection
         self.redis_client = redis.Redis(
@@ -123,7 +125,7 @@ class MongoChangeStreamProducer:
 
 if __name__ == "__main__":
     # Configuration
-    MONGO_URI = "mongodb://172.30.0.57:27017"
+    MONGO_URI = "mongodb://172.30.0.57:27017/emaildb?directConnection=true"
     REDIS_HOST = "172.30.0.57"
     REDIS_PORT = 6379
     
