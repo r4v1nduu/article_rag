@@ -3,6 +3,7 @@ import time
 import logging
 from datetime import datetime
 import redis
+import uuid
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams, PointStruct
 
@@ -90,6 +91,13 @@ class QdrantUpserter:
             else:
                 raise
     
+    def _mongodb_id_to_uuid(self, mongodb_id):
+        """Convert MongoDB ObjectId to deterministic UUID"""
+        # Create a deterministic UUID from MongoDB ObjectId
+        # This ensures the same MongoDB ID always maps to the same UUID
+        namespace = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')  # Standard namespace
+        return str(uuid.uuid5(namespace, str(mongodb_id)))
+    
     def _process_embedded_message(self, message_id, message_data):
         """Process embedded document and upsert to Qdrant"""
         try:
@@ -97,15 +105,18 @@ class QdrantUpserter:
             doc_id = message_data.get('doc_id')
             
             if operation == 'delete':
+                # Convert MongoDB ObjectId to UUID for deletion
+                point_uuid = self._mongodb_id_to_uuid(doc_id)
+                
                 # Delete from Qdrant with retry logic
                 max_retries = 3
                 for attempt in range(max_retries):
                     try:
                         self.qdrant_client.delete(
                             collection_name=self.collection_name,
-                            points_selector=[doc_id]
+                            points_selector=[point_uuid]
                         )
-                        logger.info(f"🗑️ [STAGE 2] Deleted from Qdrant: {doc_id}")
+                        logger.info(f"🗑️ [STAGE 2] Deleted from Qdrant: {doc_id} -> {point_uuid}")
                         break
                     except Exception as e:
                         if attempt == max_retries - 1:
@@ -133,11 +144,15 @@ class QdrantUpserter:
                     logger.error(f"❌ Wrong vector size for {doc_id}: got {len(vector)}, expected {expected_size}")
                     return
                 
+                # Convert MongoDB ObjectId to UUID for Qdrant
+                point_uuid = self._mongodb_id_to_uuid(doc_id)
+                
                 # Prepare point for Qdrant
                 point = PointStruct(
-                    id=doc_id,
+                    id=point_uuid,
                     vector=vector,
                     payload={
+                        'mongodb_id': doc_id,  # Store original MongoDB ID for reference
                         'product': message_data.get('product', ''),
                         'customer': message_data.get('customer', ''),
                         'owner': message_data.get('owner', ''),
@@ -158,7 +173,7 @@ class QdrantUpserter:
                             collection_name=self.collection_name,
                             points=[point]
                         )
-                        logger.info(f"✅ [STAGE 2] Upserted to Qdrant: {operation} - {doc_id}")
+                        logger.info(f"✅ [STAGE 2] Upserted to Qdrant: {operation} - {doc_id} -> {point_uuid}")
                         break
                     except Exception as e:
                         if attempt == max_retries - 1:
