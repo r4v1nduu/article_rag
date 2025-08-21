@@ -138,7 +138,8 @@ class EmbeddingProcessor:
                     'owner': message_data.get('owner', ''),
                     'date': message_data.get('date', ''),
                     'subject': message_data.get('subject', ''),
-                    'content_preview': message_data.get('content', '')[:500],  # First 500 chars
+                    'content_full': message_data.get('content', ''),  # Store full content
+                    'content_preview': message_data.get('content', '')[:500] if len(message_data.get('content', '')) > 500 else message_data.get('content', ''),  # Preview for quick display
                     'vector': json.dumps(vector),  # Serialize vector as JSON
                     'vector_size': len(vector),
                     'timestamp': datetime.now().isoformat(),

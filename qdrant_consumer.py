@@ -158,7 +158,8 @@ class QdrantUpserter:
                         'owner': message_data.get('owner', ''),
                         'date': message_data.get('date', ''),
                         'subject': message_data.get('subject', ''),
-                        'content_preview': message_data.get('content_preview', ''),
+                        'content_full': message_data.get('content_full', ''),  # Full content
+                        'content_preview': message_data.get('content_preview', ''),  # Short preview
                         'vector_size': message_data.get('vector_size'),
                         'embedded_timestamp': message_data.get('timestamp'),
                         'original_timestamp': message_data.get('original_timestamp')

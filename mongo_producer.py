@@ -69,7 +69,7 @@ class MongoChangeStreamProducer:
             'owner': document.get('owner', ''),
             'date': str(document.get('date', '')),
             'subject': document.get('subject', ''),
-            'content': document.get('content', ''),  # Full content for embedding
+            'content': document.get('body', ''),  # Full content for embedding
             'timestamp': datetime.now().isoformat(),
             'stage': 'raw'
         }
