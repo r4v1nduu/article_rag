@@ -1,0 +1,31 @@
+services:
+  mongodb-secondary:
+    image: mongo:7.0
+    container_name: kb_mongodb_secondary
+    restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "0.0.0.0:27017:27017"
+    volumes:
+      - mongodb_secondary_data:/data/db
+    networks:
+      - kb-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  kb-network:
+    driver: bridge
+    external: false
+
+volumes:
+  mongodb_secondary_data:

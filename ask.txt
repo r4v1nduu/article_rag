@@ -1,3 +1,0 @@
-curl -X POST "http://your-rag-service:8000/ask" \
-     -H "Content-Type: application/json" \
-     -d '{"query": "change crowdstrike agent id"}'
