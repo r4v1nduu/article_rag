@@ -3,12 +3,10 @@ import asyncio
 import logging
 from typing import List, Optional
 import aiohttp
-import requests
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.http import models
 import time
 
 # Configure logging
@@ -22,6 +20,8 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://172.30.0.58:11434/api/chat")
 EMBEDDING_SERVICE_URL = os.getenv("EMBEDDING_SERVICE_URL", "http://172.30.0.59:8080")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "documents")
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", 30))
+
+MAX_CONTEXT_LENGTH = int(os.getenv("MAX_CONTEXT_LENGTH", 6000))
 
 # FastAPI app
 app = FastAPI(
@@ -60,8 +60,9 @@ class HealthResponse(BaseModel):
 qdrant_client = None
 total_requests = 0
 
+# Initialize Qdrant client
 async def initialize_qdrant():
-    """Initialize Qdrant client"""
+
     global qdrant_client
     try:
         logger.info(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}")
@@ -82,8 +83,9 @@ async def initialize_qdrant():
         logger.error(f"Failed to connect to Qdrant: {e}")
         raise
 
+# Get embedding from remote embedding service
 async def get_embedding(text: str) -> List[float]:
-    """Get embedding from remote embedding service"""
+
     try:
         async with aiohttp.ClientSession() as session:
             payload = {"text": text}
@@ -109,8 +111,9 @@ async def get_embedding(text: str) -> List[float]:
             detail=f"Embedding service unavailable: {str(e)}"
         )
 
+# Search Qdrant for relevant documents
 async def retrieve_context(query: str, top_k: int = 5) -> List[str]:
-    """Search Qdrant for relevant documents"""
+
     try:
         # Get query embedding
         query_vector = await get_embedding(query)
@@ -133,7 +136,7 @@ async def retrieve_context(query: str, top_k: int = 5) -> List[str]:
             text_content = None
             
             # Try to get full content first, then fallback to preview
-            for field in ["content_full", "content", "content_preview", "text", "body", "subject"]:
+            for field in ["content", "subject"]: # FIELD TO CHECK
                 if field in hit.payload and hit.payload[field] and str(hit.payload[field]).strip():
                     text_content = str(hit.payload[field]).strip()
                     logger.info(f"Found content in field '{field}': {text_content[:100]}...")
@@ -155,32 +158,10 @@ async def retrieve_context(query: str, top_k: int = 5) -> List[str]:
             detail=f"Error retrieving context: {str(e)}"
         )
 
-def truncate_context(context_text: str, max_chars: int = 8000) -> str:
-    """Truncate context to avoid Ollama timeouts while preserving structure"""
-    if len(context_text) <= max_chars:
-        return context_text
-    
-    # Try to truncate at sentence boundaries
-    truncated = context_text[:max_chars]
-    
-    # Find the last complete sentence
-    last_period = truncated.rfind('.')
-    last_newline = truncated.rfind('\n')
-    
-    # Use the later of period or newline to maintain readability
-    cut_point = max(last_period, last_newline)
-    
-    if cut_point > max_chars * 0.7:  # Only use if we don't lose too much
-        return truncated[:cut_point + 1] + "\n\n[Content truncated for processing...]"
-    else:
-        return truncated + "\n\n[Content truncated for processing...]"
-
+# Send query to Ollama with proper error handling and timeout
 async def ask_ollama(prompt: str, model: str = "mistral:latest") -> str:
-    """Send query to Ollama with proper error handling and timeout"""
+
     try:
-        # Truncate prompt if it's too long
-        prompt = truncate_context(prompt, max_chars=8000)
-        
         payload = {
             "model": model,
             "messages": [
@@ -244,9 +225,10 @@ async def ask_ollama(prompt: str, model: str = "mistral:latest") -> str:
             detail=f"Unexpected error with language model: {str(e)}"
         )
 
+# Initialize services on startup
 @app.on_event("startup")
 async def startup_event():
-    """Initialize services on startup"""
+
     logger.info("Starting RAG service...")
     await initialize_qdrant()
     
@@ -259,16 +241,18 @@ async def startup_event():
     
     logger.info("RAG service ready!")
 
+# Cleanup on shutdown
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Cleanup on shutdown"""
+
     if qdrant_client:
         await qdrant_client.close()
     logger.info("RAG service stopped")
 
+# Health check endpoint
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
-    """Health check endpoint"""
+
     services = {"qdrant": "unknown", "ollama": "unknown", "embeddings": "unknown"}
     
     # Check Qdrant
@@ -302,9 +286,10 @@ async def health_check():
         timestamp=str(int(time.time()))
     )
 
+# Main RAG endpoint
 @app.post("/ask", response_model=QueryResponse)
 async def ask_question(request: QueryRequest):
-    """Main RAG endpoint"""
+
     global total_requests
     
     start_time = time.time()
@@ -334,19 +319,27 @@ async def ask_question(request: QueryRequest):
         # Step 3: Build prompt with retrieved context
         context_text = "\n\n---\n\n".join(context_docs)
         
-        # Limit total context size to prevent Ollama timeouts
-        context_text = truncate_context(context_text, max_chars=6000)
+        # Check if context exceeds safe character limit
+        if len(context_text) > MAX_CONTEXT_LENGTH:
+            logger.error(f"Safe character limit exceeded: context has {len(context_text)} characters")
+            processing_time = time.time() - start_time
+            raise HTTPException(
+                status_code=413,
+                detail=f"Context too large ({len(context_text)} characters). Please reduce the number of documents."
+            )
         
-        prompt = f"""Answer the question using ONLY the information provided in the context below. 
-If the answer cannot be found in the context, clearly state that you don't have enough information.
-Be specific and cite relevant parts of the context when possible.
+        prompt = f"""
+                    Answer the question using ONLY the information provided in the context below. 
+                    If the answer cannot be found in the context, clearly state that you don't have enough information.
+                    Be specific and cite relevant parts of the context when possible.
 
-Context:
-{context_text}
+                    Context:
+                    {context_text}
 
-Question: {query}
+                    Question: {query}
 
-Answer:"""
+                    Answer:
+                """
         
         # Step 4: Generate answer using Ollama
         logger.info(f"Generating answer using model: {request.model}")
@@ -373,54 +366,10 @@ Answer:"""
             detail=f"Internal server error: {str(e)}"
         )
 
-@app.get("/debug/collections")
-async def debug_collections():
-    """Debug endpoint to see what collections exist"""
-    try:
-        collections = await qdrant_client.get_collections()
-        return {
-            "available_collections": [c.name for c in collections.collections],
-            "current_collection": COLLECTION_NAME,
-            "collection_details": [
-                {
-                    "name": c.name,
-                    "status": c.status,
-                    "vectors_count": getattr(c, 'vectors_count', 'unknown'),
-                    "points_count": getattr(c, 'points_count', 'unknown')
-                } for c in collections.collections
-            ]
-        }
-    except Exception as e:
-        return {"error": str(e)}
-
-@app.get("/debug/search/{query}")
-async def debug_search(query: str):
-    """Debug endpoint to see what's in the search results"""
-    try:
-        query_vector = await get_embedding(query)
-        search_result = await qdrant_client.search(
-            collection_name=COLLECTION_NAME,
-            query_vector=query_vector,
-            limit=3,  # Just get a few for debugging
-            with_payload=True
-        )
-        
-        debug_info = []
-        for hit in search_result:
-            debug_info.append({
-                "score": hit.score,
-                "payload_keys": list(hit.payload.keys()),
-                "content_preview": str(hit.payload.get("content_preview", ""))[:200],
-                "content_full_length": len(str(hit.payload.get("content_full", "")))
-            })
-        
-        return {"debug_results": debug_info}
-    except Exception as e:
-        return {"error": str(e)}
-
+# Get service statistics
 @app.get("/stats")
 async def get_stats():
-    """Get service statistics"""
+
     try:
         collection_info = await qdrant_client.get_collection(COLLECTION_NAME)
         points_count = collection_info.points_count
@@ -438,24 +387,17 @@ async def get_stats():
         }
     }
 
+# Root endpoint with API information
 @app.get("/")
 async def root():
-    """Root endpoint with API information"""
+
     return {
         "service": "RAG (Retrieval-Augmented Generation) Service",
         "description": "Ask questions and get answers based on your document collection",
         "endpoints": {
             "/ask": "Ask a question (POST with query, top_k, model)",
             "/health": "Check service health",
-            "/stats": "Get service statistics",
-            "/debug/collections": "Debug collections",
-            "/debug/search/{query}": "Debug search results",
-            "/docs": "Interactive API documentation"
-        },
-        "example_request": {
-            "query": "What is the main topic discussed in the documents?",
-            "top_k": 5,
-            "model": "mistral:latest"
+            "/stats": "Get service statistics"
         }
     }
 
@@ -468,9 +410,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 if __name__ == "__main__":
     import uvicorn
     
-    print("Starting RAG Service...")
+    print("Starting RAG Service ;)")
     print(f"Service will be available at http://0.0.0.0:8000")
-    print(f"API docs at http://0.0.0.0:8000/docs")
     print(f"Using Qdrant at {QDRANT_HOST}:{QDRANT_PORT}")
     print(f"Using Ollama at {OLLAMA_URL}")
     print(f"Using Embedding service at {EMBEDDING_SERVICE_URL}")

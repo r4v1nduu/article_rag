@@ -1,4 +1,4 @@
-import json
+import os
 import time
 import logging
 from pymongo import MongoClient
@@ -9,15 +9,20 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://172.30.0.57:27017/emaildb?directConnection=true")
+MONGO_DB = os.getenv("MONGO_DB", "emaildb")
+MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "emails")
+REDIS_HOST = os.getenv("REDIS_HOST", "172.30.0.57")
+REDIS_PORT = os.getenv("REDIS_PORT", 6379)
+
 class MongoChangeStreamProducer:
-    def __init__(self, mongo_uri, redis_host, redis_port=6379, redis_db=0):
+    def __init__(self, mongo_uri, mongo_db, mongo_collection, redis_host, redis_port, redis_db=0):
+        
         # MongoDB connection
         self.mongo_client = MongoClient(mongo_uri)
-        
-        # TODO: UPDATE THESE WITH YOUR ACTUAL DATABASE AND COLLECTION NAMES
-        self.db = self.mongo_client['emaildb']  # ⚠️ CHANGE THIS
-        self.collection = self.db['emails']  # ⚠️ CHANGE THIS
-        
+        self.db = self.mongo_client[mongo_db]
+        self.collection = self.db[mongo_collection] 
+
         # Redis connection
         self.redis_client = redis.Redis(
             host=redis_host, 
@@ -36,18 +41,19 @@ class MongoChangeStreamProducer:
         try:
             # Test MongoDB
             self.mongo_client.admin.command('ping')
-            logger.info("✅ MongoDB connected successfully")
-            
+            logger.info("[INFO] MongoDB connected successfully")
+
             # Test Redis
             self.redis_client.ping()
-            logger.info("✅ Redis connected successfully")
-            
+            logger.info("[INFO] Redis connected successfully")
+
         except Exception as e:
-            logger.error(f"❌ Connection failed: {e}")
+            logger.error(f"[ERROR] Connection failed: {e}")
             raise
     
+    # Prepare raw document message for Stage 1 stream
     def _prepare_raw_message(self, change_event):
-        """Prepare raw document message for Stage 1 stream"""
+
         operation = change_event['operationType']
         
         if operation == 'delete':
@@ -69,18 +75,19 @@ class MongoChangeStreamProducer:
             'owner': document.get('owner', ''),
             'date': str(document.get('date', '')),
             'subject': document.get('subject', ''),
-            'content': document.get('body', ''),  # Full content for embedding
+            'content': document.get('body', ''),
             'timestamp': datetime.now().isoformat(),
             'stage': 'raw'
         }
         
         return message
     
+    # Start monitoring MongoDB changes and send to Stage 1 Redis stream
     def start_monitoring(self):
-        """Start monitoring MongoDB changes and send to Stage 1 Redis stream"""
-        logger.info("🚀 Starting MongoDB change stream monitoring...")
-        logger.info(f"📡 Sending raw documents to: {self.raw_stream}")
-        
+
+        logger.info("[INFO] Starting MongoDB change stream monitoring")
+        logger.info(f"[INFO] Sending raw documents to: {self.raw_stream}")
+
         retry_count = 0
         max_retries = 3
         
@@ -88,7 +95,7 @@ class MongoChangeStreamProducer:
             try:
                 # Open change stream
                 with self.collection.watch(full_document='updateLookup') as stream:
-                    logger.info("📡 Change stream opened, listening for changes...")
+                    logger.info("[INFO] Change stream opened, listening for changes")
                     retry_count = 0  # Reset on successful connection
                     
                     for change in stream:
@@ -102,36 +109,34 @@ class MongoChangeStreamProducer:
                                 message,
                                 maxlen=10000  # Keep last 10k messages
                             )
-                            
-                            logger.info(f"✅ [STAGE 1] Sent raw doc: {change['operationType']} - {message.get('doc_id')} -> {message_id}")
-                            
+
+                            logger.info(f"[INFO] Sent raw doc: {change['operationType']} - {message.get('doc_id')} -> {message_id}")
+
                         except Exception as e:
-                            logger.error(f"❌ Error processing change: {e}")
+                            logger.error(f"[ERROR] Error processing change: {e}")
                             # Continue processing other changes
                             continue
                             
             except Exception as e:
                 retry_count += 1
-                logger.error(f"❌ Change stream error (attempt {retry_count}/{max_retries}): {e}")
-                
+                logger.error(f"[ERROR] Change stream error (attempt {retry_count}/{max_retries}): {e}")
+
                 if retry_count >= max_retries:
-                    logger.error("❌ Max retries reached, exiting...")
+                    logger.error("[ERROR] Max retries reached, exiting")
                     break
                 
                 # Exponential backoff
                 sleep_time = min(60, 2 ** retry_count)
-                logger.info(f"⏳ Retrying in {sleep_time} seconds...")
+                logger.info(f"[INFO] Retrying in {sleep_time} seconds")
                 time.sleep(sleep_time)
 
 if __name__ == "__main__":
-    # Configuration
-    MONGO_URI = "mongodb://172.30.0.57:27017/emaildb?directConnection=true"
-    REDIS_HOST = "172.30.0.57"
-    REDIS_PORT = 6379
-    
+
     # Create and start producer
     producer = MongoChangeStreamProducer(
         mongo_uri=MONGO_URI,
+        mongo_db=MONGO_DB,
+        mongo_collection=MONGO_COLLECTION,
         redis_host=REDIS_HOST,
         redis_port=REDIS_PORT
     )
@@ -139,6 +144,6 @@ if __name__ == "__main__":
     try:
         producer.start_monitoring()
     except KeyboardInterrupt:
-        print("\n🛑 Shutting down gracefully...")
+        print("\n[INFO] Shutting down gracefully")
     except Exception as e:
-        print(f"❌ Fatal error: {e}")
+        print(f"[ERROR] Fatal error: {e}")
