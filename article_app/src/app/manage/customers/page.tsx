@@ -153,20 +153,6 @@ export default function ManageCustomers() {
     }
   };
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (isError) {
-    return (
-      <div className="container mx-auto p-4 text-center">
-        <p className="text-red-500">Failed to load customers: {error instanceof Error ? error.message : "An unknown error occurred."}</p>
-        <Button onClick={() => refetch()} className="mt-4">
-          Retry
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen">
@@ -211,7 +197,19 @@ export default function ManageCustomers() {
           </div>
           <div>
             <h2 className="text-xl font-semibold mb-2">Customer List</h2>
-            {customers && customers.length > 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                <span>Loading customers...</span>
+              </div>
+            ) : isError ? (
+              <div className="text-red-500 text-center py-8">
+                <p>Failed to load customers: {error instanceof Error ? error.message : "An unknown error occurred."}</p>
+                <Button onClick={() => refetch()} className="mt-4">
+                  Retry
+                </Button>
+              </div>
+            ) : customers && customers.length > 0 ? (
               <ul className="space-y-2">
                 {customers.map((customer) => (
                   <li key={customer._id} className="flex justify-between items-center p-2 border rounded">
@@ -231,7 +229,7 @@ export default function ManageCustomers() {
                 ))}
               </ul>
             ) : (
-              <p>No customers found.</p>
+              <p className="text-center py-8">No customers found.</p>
             )}
           </div>
           <Dialog open={!!deletingCustomer} onOpenChange={(isOpen) => !isOpen && setDeletingCustomer(null)}>

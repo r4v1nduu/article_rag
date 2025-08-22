@@ -151,20 +151,6 @@ export default function ManageProducts() {
     }
   };
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (isError) {
-    return (
-      <div className="container mx-auto p-4 text-center">
-        <p className="text-red-500">Failed to load products: {error instanceof Error ? error.message : "An unknown error occurred."}</p>
-        <Button onClick={() => refetch()} className="mt-4">
-          Retry
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen">
@@ -209,7 +195,19 @@ export default function ManageProducts() {
           </div>
           <div>
             <h2 className="text-xl font-semibold mb-2">Product List</h2>
-            {products && products.length > 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                <span>Loading products...</span>
+              </div>
+            ) : isError ? (
+              <div className="text-red-500 text-center py-8">
+                <p>Failed to load products: {error instanceof Error ? error.message : "An unknown error occurred."}</p>
+                <Button onClick={() => refetch()} className="mt-4">
+                  Retry
+                </Button>
+              </div>
+            ) : products && products.length > 0 ? (
               <ul className="space-y-2">
                 {products.map((product) => (
                   <li key={product._id} className="flex justify-between items-center p-2 border rounded">
@@ -229,7 +227,7 @@ export default function ManageProducts() {
                 ))}
               </ul>
             ) : (
-              <p>No products found.</p>
+              <p className="text-center py-8">No products found.</p>
             )}
           </div>
           <Dialog open={!!deletingProduct} onOpenChange={(isOpen) => !isOpen && setDeletingProduct(null)}>
