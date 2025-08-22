@@ -11,10 +11,10 @@ from qdrant_client.http.models import Distance, VectorParams, PointStruct
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-REDIS_HOST = os.getenv("REDIS_HOST", "172.30.0.57")
-REDIS_PORT = os.getenv("REDIS_PORT", 6379)
-QDRANT_HOST = os.getenv("QDRANT_HOST", "172.30.0.57")
-QDRANT_PORT = os.getenv("QDRANT_PORT", 6333)
+REDIS_HOST = os.getenv("REDIS_HOST")
+REDIS_PORT = os.getenv("REDIS_PORT")
+QDRANT_HOST = os.getenv("QDRANT_HOST")
+QDRANT_PORT = os.getenv("QDRANT_PORT")
 
 class QdrantUpserter:
     def __init__(self, redis_host, redis_port, qdrant_host, qdrant_port):

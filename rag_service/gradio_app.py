@@ -1,13 +1,10 @@
 import gradio as gr
 import requests
-import json
-import time
 
 # Try multiple URLs for RAG service
 POSSIBLE_URLS = [
     "http://localhost:8000",
-    "http://127.0.0.1:8000", 
-    "http://172.30.0.57:8000"
+    "http://127.0.0.1:8000"
 ]
 
 def find_working_rag_service():

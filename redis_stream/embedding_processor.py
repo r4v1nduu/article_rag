@@ -10,10 +10,10 @@ import redis
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-REDIS_HOST = os.getenv("REDIS_HOST", "172.30.0.57")
-REDIS_PORT = os.getenv("REDIS_PORT", 6379)
-EMBEDDING_HOST = os.getenv("EMBEDDING_HOST", "172.30.0.59")
-EMBEDDING_PORT = os.getenv("EMBEDDING_PORT", 8080)
+REDIS_HOST = os.getenv("REDIS_HOST")
+REDIS_PORT = os.getenv("REDIS_PORT")
+EMBEDDING_HOST = os.getenv("EMBEDDING_HOST")
+EMBEDDING_PORT = os.getenv("EMBEDDING_PORT")
 
 class EmbeddingProcessor:
     def __init__(self, redis_host, redis_port, embedding_host, embedding_port):

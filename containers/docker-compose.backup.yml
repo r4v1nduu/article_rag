@@ -1,15 +1,13 @@
 services:
   mongodb-secondary:
     image: mongo:7.0
-    container_name: kb_mongodb_secondary
+    container_name: mongodb_backup
     restart: unless-stopped
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "0.0.0.0:27017:27017"
     volumes:
       - mongodb_secondary_data:/data/db
-    networks:
-      - kb-network
     deploy:
       resources:
         limits:
@@ -22,10 +20,5 @@ services:
       retries: 3
       start_period: 40s
 
-networks:
-  kb-network:
-    driver: bridge
-    external: false
-
 volumes:
-  mongodb_secondary_data:
+  mongodb_backup_data:

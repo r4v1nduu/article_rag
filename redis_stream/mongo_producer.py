@@ -9,11 +9,11 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://172.30.0.57:27017/emaildb?directConnection=true")
-MONGO_DB = os.getenv("MONGO_DB", "emaildb")
-MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "emails")
-REDIS_HOST = os.getenv("REDIS_HOST", "172.30.0.57")
-REDIS_PORT = os.getenv("REDIS_PORT", 6379)
+MONGO_URI = os.getenv("MONGO_URI")
+MONGO_DB = os.getenv("MONGO_DB")
+MONGO_COLLECTION = os.getenv("MONGO_COLLECTION")
+REDIS_HOST = os.getenv("REDIS_HOST")
+REDIS_PORT = os.getenv("REDIS_PORT")
 
 class MongoChangeStreamProducer:
     def __init__(self, mongo_uri, mongo_db, mongo_collection, redis_host, redis_port, redis_db=0):

@@ -14,11 +14,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configuration from environment variables
-QDRANT_HOST = os.getenv("QDRANT_HOST", "172.30.0.57")
-QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://172.30.0.58:11434/api/chat")
-EMBEDDING_SERVICE_URL = os.getenv("EMBEDDING_SERVICE_URL", "http://172.30.0.59:8080")
-COLLECTION_NAME = os.getenv("COLLECTION_NAME", "documents")
+QDRANT_HOST = os.getenv("QDRANT_HOST")
+QDRANT_PORT = int(os.getenv("QDRANT_PORT"))
+OLLAMA_URL = os.getenv("OLLAMA_URL")
+EMBEDDING_SERVICE_URL = os.getenv("EMBEDDING_SERVICE_URL")
+COLLECTION_NAME = os.getenv("COLLECTION_NAME")
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", 30))
 
 MAX_CONTEXT_LENGTH = int(os.getenv("MAX_CONTEXT_LENGTH", 6000))
