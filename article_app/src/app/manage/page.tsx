@@ -19,18 +19,14 @@ export default function ManageDashboardPage() {
       <div className="max-w-7xl mx-auto py-12 sm:px-8 lg:px-12">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-stone-100">
-            Management Dashboard
-          </h1>
-          <p className="text-stone-300 mt-2">
-            Manage your customers, products, and articles.
-          </p>
+          <h1 className="text-3xl font-bold">Management Dashboard</h1>
+          <p className="mt-2">Manage your customers, products, and articles.</p>
         </div>
 
         {/* Management Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <Link href="/manage/customers">
-            <Card className="hover:bg-stone-800 transition-colors">
+            <Card className="">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Users className="mr-2" />
@@ -43,7 +39,7 @@ export default function ManageDashboardPage() {
             </Card>
           </Link>
           <Link href="/manage/products">
-            <Card className="hover:bg-stone-800 transition-colors">
+            <Card className="">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <ShoppingCart className="mr-2" />
@@ -56,7 +52,7 @@ export default function ManageDashboardPage() {
             </Card>
           </Link>
           <Link href="/manage/articles">
-            <Card className="hover:bg-stone-800 transition-colors">
+            <Card className="">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <FileText className="mr-2" />

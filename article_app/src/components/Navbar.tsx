@@ -17,12 +17,6 @@ const navigation = [
     current: false,
     page: "manage",
     icon: CogIcon,
-    colors: {
-      current:
-        "bg-blue-600 text-white border-blue-500 dark:bg-blue-500 dark:border-blue-400",
-      default:
-        "text-blue-600 hover:bg-blue-50 hover:text-blue-700 border-blue-200 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300 dark:border-blue-800",
-    },
   },
 ];
 
@@ -31,7 +25,6 @@ function classNames(...classes: string[]) {
 }
 
 export default function Navbar({ currentPage = "home" }: NavbarProps) {
-
   // Update navigation to mark current page
   const updatedNavigation = navigation.map((item) => ({
     ...item,
@@ -52,13 +45,7 @@ export default function Navbar({ currentPage = "home" }: NavbarProps) {
               <div className="flex space-x-4">
                 {updatedNavigation.map((item) => (
                   <Link key={item.name} href={item.href}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={classNames(
-                        item.current ? item.colors.current : item.colors.default
-                      )}
-                    >
+                    <Button variant="outline" size="sm">
                       <div className="flex items-center space-x-2">
                         <item.icon className="h-5 w-5" aria-hidden="true" />
                         <span>{item.name}</span>
