@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Navbar from "@/components/Navbar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -150,103 +151,104 @@ export default function ManageProducts() {
     }
   };
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (isError) {
-    return (
-      <div className="container mx-auto p-4 text-center">
-        <p className="text-red-500">Failed to load products: {error instanceof Error ? error.message : "An unknown error occurred."}</p>
-        <Button onClick={() => refetch()} className="mt-4">
-          Retry
-        </Button>
-      </div>
-    );
-  }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Manage Products</h1>
-        <Button onClick={() => refetch()} disabled={isRefetching}>
-          {isRefetching ? (
-            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-          ) : null}
-          Refresh
-        </Button>
-      </div>
-      <div className="mb-8">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Product Name"
-            />
+    <div className="min-h-screen">
+      <Navbar currentPage="manage" />
+        <div className="max-w-7xl mx-auto py-12 sm:px-8 lg:px-12">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl font-bold">Manage Products</h1>
+            <Button onClick={() => refetch()} disabled={isRefetching}>
+              {isRefetching ? (
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Refresh
+            </Button>
+          </div>
+          <div className="mb-8">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Product Name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Product Description"
+                />
+              </div>
+              <Button type="submit">{editingProduct ? "Update Product" : "Add Product"}</Button>
+              {editingProduct && (
+                <Button variant="outline" onClick={() => setEditingProduct(null)}>
+                  Cancel
+                </Button>
+              )}
+            </form>
           </div>
           <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Product Description"
-            />
+            <h2 className="text-xl font-semibold mb-2">Product List</h2>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                <span>Loading products...</span>
+              </div>
+            ) : isError ? (
+              <div className="text-red-500 text-center py-8">
+                <p>Failed to load products: {error instanceof Error ? error.message : "An unknown error occurred."}</p>
+                <Button onClick={() => refetch()} className="mt-4">
+                  Retry
+                </Button>
+              </div>
+            ) : products && products.length > 0 ? (
+              <ul className="space-y-2">
+                {products.map((product) => (
+                  <li key={product._id} className="flex justify-between items-center p-2 border rounded">
+                    <div>
+                      <p className="font-bold">{product.name}</p>
+                      <p className="text-sm text-gray-500">{product.description}</p>
+                    </div>
+                    <div className="space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => handleEdit(product)}>
+                        Edit
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(product)}>
+                        Delete
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-center py-8">No products found.</p>
+            )}
           </div>
-          <Button type="submit">{editingProduct ? "Update Product" : "Add Product"}</Button>
-          {editingProduct && (
-            <Button variant="outline" onClick={() => setEditingProduct(null)}>
-              Cancel
-            </Button>
-          )}
-        </form>
+          <Dialog open={!!deletingProduct} onOpenChange={(isOpen) => !isOpen && setDeletingProduct(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Are you sure you want to delete this product?</DialogTitle>
+                <DialogDescription>
+                  This action cannot be undone. This will permanently delete the product.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button variant="destructive" onClick={confirmDelete}>
+                  Delete
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
-      <div>
-        <h2 className="text-xl font-semibold mb-2">Product List</h2>
-        {products && products.length > 0 ? (
-          <ul className="space-y-2">
-            {products.map((product) => (
-              <li key={product._id} className="flex justify-between items-center p-2 border rounded">
-                <div>
-                  <p className="font-bold">{product.name}</p>
-                  <p className="text-sm text-gray-500">{product.description}</p>
-                </div>
-                <div className="space-x-2">
-                  <Button variant="outline" size="sm" onClick={() => handleEdit(product)}>
-                    Edit
-                  </Button>
-                  <Button variant="destructive" size="sm" onClick={() => handleDelete(product)}>
-                    Delete
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No products found.</p>
-        )}
-      </div>
-      <Dialog open={!!deletingProduct} onOpenChange={(isOpen) => !isOpen && setDeletingProduct(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Are you sure you want to delete this product?</DialogTitle>
-            <DialogDescription>
-              This action cannot be undone. This will permanently delete the product.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button variant="destructive" onClick={confirmDelete}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
   );
 }
