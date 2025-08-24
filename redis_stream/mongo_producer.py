@@ -4,6 +4,8 @@ import logging
 from pymongo import MongoClient
 import redis
 from datetime import datetime
+from dotenv import load_dotenv
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

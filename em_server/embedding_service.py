@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
+from transformers import AutoTokenizer, AutoModel
 import uvicorn
 import logging
 import torch
@@ -36,26 +37,23 @@ class HealthResponse(BaseModel):
 
 # Global variables
 model = None
+tokenizer = None
 device = None
 request_count = 0
 
 # Load the sentence transformer model
 def load_model():
-
-    global model, device
+    global model, tokenizer, device
     try:
-        logger.info("[INFO] Loading SentenceTransformer model")
-
-        # Check for GPU availability
         device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"[INFO] Using device: {device}")
 
-        # Load model
-        model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2', device=device)
+        # Load tokenizer and model
+        tokenizer = AutoTokenizer.from_pretrained("intfloat/e5-large")
+        model = AutoModel.from_pretrained("intfloat/e5-large").to(device)
+        model.eval()
 
-        logger.info("[INFO] Model loaded successfully")
-        logger.info(f"[INFO] Vector dimension: {model.get_sentence_embedding_dimension()}")
-        
+        logger.info("[INFO] E5-Large model loaded successfully")
         return model
     except Exception as e:
         logger.error(f"[ERROR] Failed to load model: {e}")
@@ -88,34 +86,40 @@ async def health_check():
 # Generate embedding for a single text
 @app.post("/encode", response_model=EmbeddingResponse)
 async def encode_text(request: EmbeddingRequest):
-
     global request_count
-    
-    if model is None:
+
+    if model is None or tokenizer is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
     
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+
     try:
-        if not request.text.strip():
-            raise HTTPException(status_code=400, detail="Text cannot be empty")
-        
         start_time = time.time()
-        
-        # Generate embedding
-        embedding = model.encode(request.text, convert_to_tensor=False)
-        
-        # Convert to Python list
-        embedding_list = embedding.tolist()
-        
+
+        # Tokenize input
+        inputs = tokenizer(
+            request.text,
+            return_tensors="pt",
+            truncation=True,
+            max_length=512  # E5-Large typical limit
+        ).to(device)
+
+        # Generate embeddings
+        with torch.no_grad():
+            model_output = model(**inputs)
+            # Mean pooling over last hidden states
+            embeddings = model_output.last_hidden_state.mean(dim=1)
+            embedding_list = embeddings[0].cpu().tolist()
+
         processing_time = time.time() - start_time
         request_count += 1
-
-        logger.info(f"[INFO] Generated embedding for text: {request.text[:100]} (took {processing_time:.3f}s)")
 
         return EmbeddingResponse(
             embedding=embedding_list,
             processing_time=processing_time
         )
-        
+
     except Exception as e:
         logger.error(f"[ERROR] Error generating embedding: {e}")
         raise HTTPException(status_code=500, detail=f"Error generating embedding: {str(e)}")

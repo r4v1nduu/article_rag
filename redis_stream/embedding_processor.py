@@ -5,6 +5,8 @@ import logging
 import requests
 from datetime import datetime
 import redis
+from dotenv import load_dotenv
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
